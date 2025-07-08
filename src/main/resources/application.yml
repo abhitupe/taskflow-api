@@ -1,0 +1,71 @@
+# Default configuration (shared across all profiles)
+spring:
+  application:
+    name: TaskFlow API
+
+  # Profile configuration
+  profiles:
+    active: dev
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update  # Creates/updates schema automatically
+    show-sql: true      # Shows SQL queries in console (useful for learning)
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    open-in-view: false  # Prevents lazy loading issues
+
+  # Jackson Configuration (JSON serialization)
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+# Server Configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Logging Configuration
+logging:
+  level:
+    com.taskflow.api: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Application-specific properties
+app:
+  jwt:
+    secret: mySecretKey  # In production, this should be in environment variables
+    expiration: 86400000  # 24 hours in milliseconds
+
+# Swagger/OpenAPI Configuration
+#springdoc:
+#  api-docs:
+#    path: /api-docs
+#  swagger-ui:
+#    path: /swagger-ui.html
+#    operationsSorter: method
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/taskflow_db?createDatabaseIfNotExist=true
+    username: taskflow_user
+    password: taskflow_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
