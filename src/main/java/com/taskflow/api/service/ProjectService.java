@@ -1,6 +1,8 @@
 package com.taskflow.api.service;
 
 import com.taskflow.api.exception.BadRequestException;
+import com.taskflow.api.exception.ResourceNotFoundException;
+import com.taskflow.api.exception.UnauthorizedException;
 import com.taskflow.api.model.Project;
 import com.taskflow.api.model.User;
 import com.taskflow.api.repository.ProjectRepository;
@@ -51,6 +53,67 @@ public class ProjectService {
 
         return savedProject;
 
+    }
+
+    @Transactional(readOnly = true)
+    public Project findByIdWithAccess(Long projectId, Long userId) {
+
+        log.debug("Finding project ID: {} for user ID: {}", projectId, userId);
+
+        Project project = projectRepository.findById(projectId).orElseThrow(() -> {
+            log.warn("Project not found with ID: {}", projectId);
+            return new ResourceNotFoundException("Project not found with ID: " + projectId);
+        });
+
+        if (!hasProjectAccess(project, userId)) {
+            log.warn("User {} denied access to project {}", userId, projectId);
+            throw new UnauthorizedException("You don't have access to this project");
+        }
+
+        return project;
+
+    }
+
+    @Transactional(readOnly = true)
+    public Project findById(Long projectId) {
+
+        log.debug("Finding project ID: {}", projectId);
+
+        return projectRepository.findById(projectId).orElseThrow(() -> {
+            log.warn("Project not found with ID: {}", projectId);
+            return new ResourceNotFoundException("Project not found with ID: " + projectId);
+        });
+
+    }
+
+    @Transactional(readOnly = true)
+    public List<Project> findUserProjects(Long userId, boolean includeInactive) {
+
+        log.debug("Finding projects for user ID: {}, includeInactive: {}", userId, includeInactive);
+
+        User user = userService.findById(userId);
+
+        if (includeInactive) {
+            return projectRepository.findByUser(user);
+        } else{
+            return projectRepository.findByUserAndIsActive(user, includeInactive);
+        }
+
+    }
+
+
+
+
+
+
+    private boolean hasProjectAccess(Project project, Long userId) {
+        User user = userService.findById(userId);
+
+        if (user.isAdmin() || project.getUser().getId().equals(userId)) {
+            return true;
+        }
+
+        return false;
     }
 
 }
