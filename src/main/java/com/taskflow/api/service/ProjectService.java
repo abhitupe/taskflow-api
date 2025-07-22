@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.event.WindowFocusListener;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -101,9 +103,99 @@ public class ProjectService {
 
     }
 
+    @Transactional(readOnly = true)
+    public List<Project> findAllActiveProjects() {
+        log.debug("Finding all active projects");
+        return projectRepository.findByIsActiveTrue();
+    }
 
+    @Transactional(readOnly = true)
+    public List<Project> findAllProjects() {
+        log.debug("Finding all projects");
+        return projectRepository.findAll();
+    }
 
+    public Project updateProject(Long projectId, Project updatedProject, Long userId) {
+        log.info("Updating project ID: {} by user ID: {}", projectId, userId);
 
+        Project existingProject = findByIdWithAccess(projectId, userId);
+
+        if (!existingProject.getName().equals(updatedProject.getName())) {
+            List<Project> userProjects = projectRepository.findByUserAndIsActive(existingProject.getUser(), true);
+            boolean nameExists = userProjects.stream().anyMatch(p -> !p.getId().equals(projectId) &&
+                    p.getName().equalsIgnoreCase(updatedProject.getName()));
+
+            if (nameExists) {
+                log.warn("Project update failed: Project name '{}' already exists for user {}", existingProject.getName(), userId);
+                throw new BadRequestException("Project name already exists: " + updatedProject.getName());
+            }
+
+        }
+
+        existingProject.setName(updatedProject.getName());
+        existingProject.setDescription(updatedProject.getDescription());
+
+        Project savedProject = projectRepository.save(existingProject);
+        log.info("Successfully updated project '{}' with ID: {}", savedProject.getName(), savedProject.getId());
+
+        return savedProject;
+
+    }
+
+    public Project deactivateproject(Long projectId, Long userId) {
+
+        log.info("Deactivating project ID: {} by user ID: {}", projectId, userId);
+
+        Project project = findByIdWithAccess(projectId, userId);
+        project.setIsActive(false);
+
+        Project savedProject = projectRepository.save(project);
+        log.info("Successfully deactivated project '{}' with ID: {}", savedProject.getName(), savedProject.getId());
+
+        return savedProject;
+
+    }
+
+    public Project reactivateProject(Long projectId, Long userId) {
+
+        log.info("Reactivating project ID: '{}' with user ID: {}", projectId, userId);
+
+        Project project = findByIdWithAccess(projectId, userId);
+        project.setIsActive(true);
+
+        Project savedProject = projectRepository.save(project);
+        log.info("Successfully reactivate project '{}' with ID: {}", savedProject.getName(), savedProject.getId());
+
+        return savedProject;
+
+    }
+
+    public void deleteProject(Long projectId) {
+
+        log.warn("Permanently deleting project ID: {}", projectId);
+
+        Project project = findById(projectId);
+
+        projectRepository.delete(project);
+        log.warn("Successfully deleted project: '{}' with ID: {}", project.getName(), project.getId());
+
+    }
+
+    @Transactional(readOnly = true)
+    public List<Project> findProjectsCreatedAfter(LocalDateTime date) {
+
+        log.debug("Finding projects created after: {}", date);
+        return projectRepository.findByCreatedAtAfter(date);
+
+    }
+
+    @Transactional(readOnly = true)
+    public List<Project> findProjectsWithTasks(Long userId) {
+
+        log.debug("Finding projects with tasks for user ID: {}", userId);
+        return projectRepository.findProjectsByUserWithTasks(userId);
+
+    }
 
 
     private boolean hasProjectAccess(Project project, Long userId) {
