@@ -197,6 +197,27 @@ public class ProjectService {
 
     }
 
+    public Project transferOwnership(Long projectId, Long newOwnerId) {
+
+        log.info("Transfering ownership of project ID: {} to user ID: {}", projectId, newOwnerId);
+
+        Project project = findById(projectId);
+        User newOwner = userService.findById(newOwnerId);
+
+        if (!newOwner.getIsActive()) {
+            log.warn("Ownership transfer failed: New owner {} is not active", newOwnerId);
+            throw new BadRequestException("Cannot transfer ownership to inactive user");
+        }
+
+        User previousOwner = project.getUser();
+        project.setUser(newOwner);
+
+        Project savedProject = projectRepository.save(project);
+        log.info("Successfully transferred ownership of project '{}' from {} to {}", savedProject.getName(), previousOwner.getUsername(), newOwner.getUsername());
+
+        return savedProject;
+
+    }
 
     private boolean hasProjectAccess(Project project, Long userId) {
         User user = userService.findById(userId);
@@ -206,6 +227,27 @@ public class ProjectService {
         }
 
         return false;
+    }
+
+    public boolean isProjectAccessible(Project project, Long userId) {
+
+        User user = userService.findById(userId);
+
+        if (user.isAdmin()) {
+            return true;
+        }
+
+        return project.getIsActive() && project.getUser().getId().equals(userId);
+
+    }
+
+    @Transactional(readOnly = true)
+    public Project getProjectWithStats(Long projectId, Long userId) {
+
+        log.debug("Getting project stats for project ID: {} by user ID: {}", projectId, userId);
+
+        return findByIdWithAccess(projectId, userId);
+
     }
 
 }
